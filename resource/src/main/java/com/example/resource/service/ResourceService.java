@@ -81,7 +81,6 @@ public class ResourceService {
             Long PtotalCpuUsage = Long.parseLong(pre_cpu_stats2.get("total_usage").toString());
 
             Double cpu_percent = (CtotalCpuUsage - PtotalCpuUsage) * cpu_num * 100.0 / CsystemCpuUsage;
-            System.out.println(cpu_percent);
             if(cpu_percent > 80.0)
             {
                 System.out.println("CPU P over 80%");
