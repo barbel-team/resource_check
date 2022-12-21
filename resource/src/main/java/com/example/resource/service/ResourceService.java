@@ -1,9 +1,12 @@
 package com.example.resource.service;
 
+import com.example.resource.dto.ResourceDto;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 
+import com.spotify.docker.client.DefaultDockerClient;
+import com.spotify.docker.client.DockerClient;
 import com.sun.management.OperatingSystemMXBean;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -50,11 +53,16 @@ public class ResourceService {
         return sb.toString();
     }
 
-    public void check() throws IOException
+    public List<ResourceDto> check() throws IOException
     {
-        //String[] names = {"/member","/product","/memberDB","/productDB"};
-        String[] names = {"/memberDB"};
+        List<ResourceDto> list = new ArrayList<>();
+        int i =0;
+        String[] normalName={"member","product","memberDB","productDB"};
+        String[] names = {"/member","/product","/memberDB","/productDB"};
         for(String name : names ) {
+            ResourceDto rd = new ResourceDto();
+            rd.setName(name);
+
             Process process = Runtime.getRuntime().exec("curl -s --unix-socket /var/run/docker.sock http://v1.41/containers" + name + "/stats");
             BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line = in.readLine();
@@ -65,6 +73,7 @@ public class ResourceService {
 
             Long cpu_num = Long.parseLong(cpu_stats.get("online_cpus").toString());
             Long CsystemCpuUsage = Long.parseLong(cpu_stats.get("system_cpu_usage").toString());
+
             Map<String, Object> cpu_stats2 = (Map<String, Object>) cpu_stats.get("cpu_usage");
             Long CtotalCpuUsage = Long.parseLong(cpu_stats2.get("total_usage").toString());
             Map<String, Object> pre_cpu_stats = (Map<String, Object>) stats.get("precpu_stats");
@@ -72,15 +81,18 @@ public class ResourceService {
             Long PtotalCpuUsage = Long.parseLong(pre_cpu_stats2.get("total_usage").toString());
 
             Double cpu_percent = (CtotalCpuUsage - PtotalCpuUsage) * cpu_num * 100.0 / CsystemCpuUsage;
-
+            System.out.println(cpu_percent);
             if(cpu_percent > 80.0)
             {
-
+                System.out.println("CPU P over 80%");
+                Runtime.getRuntime().exec("sudo docker update --cpu-shares \"512\" "+normalName[i]);
             }
 
             else if(cpu_percent < 20.0)
             {
 
+                System.out.println("CPU P under 20%");
+                Runtime.getRuntime().exec("sudo docker update --cpu-shares \"2048\" "+normalName[i]);
             }
 
             Map<String, Object> memory_stats = (Map<String, Object>) stats.get("memory_stats");
@@ -91,13 +103,20 @@ public class ResourceService {
 
             if(memory_percent > 80.0)
             {
-
+                System.out.println("MEMORY P over 80%");
+                Runtime.getRuntime().exec("docker update --memory \"512mb\" --memory-swap \"512mb\" "+normalName[i]);
             }
             else if(memory_percent < 20.0)
             {
-
+                System.out.println("MEMORY P under 20%");
+                Runtime.getRuntime().exec("docker update --memory \"2048mb\" --memory-swap \"2048mb\" "+normalName[i]);
             }
+            System.out.println("check finish : "+name);
+            list.add(rd);
+            i++;
         }
+
+        return list;
     }
     public static void print(List<Map<String, Object>> datas, JSONObject json,StringBuilder sb) throws IOException, InterruptedException {
         int length = datas.size(); // container 개수
